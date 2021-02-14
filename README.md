@@ -1,2 +1,2 @@
 # videogames-over
-Here I'll post my interesting programs
+Here we (blood'n'tears & PavelYurch) will post our projects
