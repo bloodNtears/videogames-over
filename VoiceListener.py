@@ -1,5 +1,8 @@
 from discord.ext import commands
 import discord
+from threading import Thread
+
+
 
 
 class VoiceListener(commands.Cog):
@@ -8,6 +11,18 @@ class VoiceListener(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
+
+        active_users = dict()  # all users who are in voice chat rn; structure: {user1: join_time, user2: join_time ...}
+
+        pairs = dict()  # dict of pairs related to a specific voice channel;
+        # structure: {voice_channel1_id: [user1, user2, user3],
+        # voice_channel2_id: [user4, user5, user6]
+        # }
+
+        # for example:
+        # if user1 leaves, we scan pairs dict
+        # 1) start function fill_db with ([user1, join_time], [user2, join_time]) and ([user1, join_time], [user3, join_time])
+        # 2) delete user1 from active_users dict
 
         # разобраться с переключением в другой войс
 
