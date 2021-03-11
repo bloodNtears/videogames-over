@@ -1,7 +1,7 @@
 import random
 from VoiceListener import *
 
-TOKEN = 'ODA0Njk3NTYxNzc2MjU5MDgy.YBQHAQ.-aII_Q52f7weyP6O0-5bnBYmkxE'
+TOKEN = ''
 
 
 class MyClient(commands.Bot):
