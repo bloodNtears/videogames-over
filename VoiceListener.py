@@ -1,6 +1,6 @@
 from discord.ext import commands
 import discord
-import datetime
+from datetime import datetime, time, date, timedelta
 import sqlite3
 
 
@@ -16,11 +16,29 @@ def fill_id_table(member):
     conn.close()
 
 
-def fill_time_db(member1, join_time1, member2, join_time2):
+def fill_time_db(member1, time1, member2, time2):
+    print('ARGS', member1, time1, member2, time2)
     conn = sqlite3.connect('projectdis.db')
     cur = conn.cursor()
-    user1_id = cur.execute('SELECT user_id from UsersID WHERE ds_id = ?', (member1.id,)).fetchone()
-    user2_id = cur.execute('SELECT user_id from UsersID WHERE ds_id = ?', (member2.id,)).fetchone()
+    user1_id = cur.execute('SELECT user_id from UsersID WHERE ds_id = ?', (member1,)).fetchone()[0]
+    user2_id = cur.execute('SELECT user_id from UsersID WHERE ds_id = ?', (member2,)).fetchone()[0]
+    cur_time = datetime.now()
+    # delta_time = cur_time - timedelta(hours=time2.hour, minutes=time2.minute, seconds=time2.second)
+    print('CURTIME', cur_time)
+    if time2 > time1:
+        delta_time = cur_time - timedelta(hours=time2.hour, minutes=time2.minute, seconds=time2.second)
+    else:
+        delta_time = cur_time - timedelta(hours=time1.hour, minutes=time1.minute, seconds=time1.second)
+    delta_time = int(delta_time.hour * 60 + delta_time.minute + delta_time.second / 60)
+    friends_time = cur.execute(f'SELECT u{user1_id} FROM Time WHERE User_id = {user2_id}').fetchone()[0]
+    if friends_time is None:
+        friends_time = 0
+    req = f'UPDATE Time SET u{user1_id} = {delta_time + friends_time} WHERE User_id = {user2_id}'
+    req2 = f'UPDATE Time SET u{user2_id} = {delta_time + friends_time} WHERE User_id = {user1_id}'
+    cur.execute(req)
+    cur.execute(req2)
+    conn.commit()
+    conn.close()
 
 
 class VoiceListener(commands.Cog):
@@ -43,41 +61,52 @@ class VoiceListener(commands.Cog):
         # 1) start function fill_db with ([user1, join_time], [user2, join_time]) and ([user1, join_time], [user3, join_time])
         # 2) delete user1 from active_users dict
 
-        # разобраться с переключением в другой войс
-
         if before.channel != after.channel:
             if before.channel is None:
                 print(member.name, 'has connected to', after.channel.name, '\n')
 
                 fill_id_table(member)
 
-                self.active_users[member.id] = datetime.datetime.now().time()
-                print(self.active_users)
-
-                self.pairs.setdefault(after.channel.id, []).append(member.id)
-                print(self.pairs)
+                self.active_users[member.id] = datetime.now()
+                print('ACTIVE USERS', self.active_users)
+                if after.channel.id not in  self.pairs.keys():
+                    self.pairs.setdefault(after.channel.id, [member.id])
+                else:
+                    self.pairs[after.channel.id].append(member.id)
+                print('PAIRS', self.pairs)
 
             elif after.channel is not None:
                 print(member.name, 'has disconnected from', before.channel.name, '\n')
                 print(member.name, 'has connected to', after.channel.name, '\n')
                 # заполняем бд данными из active_users
-                self.pairs[before.channel.id].remove(member.id)
+
+                friends = self.pairs[before.channel.id].remove(member.id)
+                for friend in friends:
+                    fill_time_db(member.id, self.active_users[member.id], friend, self.active_users[friend])
+
                 if not self.pairs[before.channel.id]:
                     del self.pairs[before.channel.id]
-                self.active_users[member.id] = datetime.datetime.now().time()
+                self.active_users[member.id] = datetime.now()
                 print(self.active_users)
                 self.pairs.setdefault(after.channel.id, []).append(member.id)
                 print(self.pairs)
+
             else:
                 print(member.name, 'has disconnected from', before.channel.name, '\n')
-                try:
-                    del self.active_users[member.id]
+                print('DEBUG', self.pairs[before.channel.id])
+                self.pairs[before.channel.id].remove(member.id)
+                friends = self.pairs[before.channel.id]
+                print('FRIENDS', friends)
+                if friends is not None:
+                    for friend in friends:
+                        fill_time_db(member.id, self.active_users[member.id], friend, self.active_users[friend])
+
+                if not self.pairs[before.channel.id]:
                     del self.pairs[before.channel.id]
-                except Exception as e:
-                    print(e)
-                    pass
-                print(self.active_users)
-                print(self.pairs)
+                if not self.active_users[member.id]:
+                    del self.active_users[member.id]
+                print('ACTIVE', self.active_users)
+                print('PAIRS', self.pairs)
 
         '''
         if before.self_mute is False and after.self_mute is True:

@@ -12,7 +12,7 @@ class MyClient(commands.Bot):
         if NEW_SERVER:
             guilds = bot.guilds
             for guild in guilds:
-                if guild.name == 'playin on de_pression map':
+                if guild.name == 'test_bot_fiverr':
                     true_guild = guild
                     print(guild.name.upper())
                     id_data(true_guild)
@@ -110,5 +110,5 @@ def time_data():
 
 bot = MyClient(command_prefix='!', intents=discord.Intents.all())
 
-# setup(bot)
+setup(bot)
 bot.run(TOKEN)
