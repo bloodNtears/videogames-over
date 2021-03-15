@@ -1,6 +1,6 @@
 from discord.ext import commands
 import discord
-from datetime import datetime, time, date, timedelta
+from datetime import datetime, timedelta
 import sqlite3
 
 
@@ -69,7 +69,7 @@ class VoiceListener(commands.Cog):
 
                 self.active_users[member.id] = datetime.now()
                 print('ACTIVE USERS', self.active_users)
-                if after.channel.id not in  self.pairs.keys():
+                if after.channel.id not in self.pairs.keys():
                     self.pairs.setdefault(after.channel.id, [member.id])
                 else:
                     self.pairs[after.channel.id].append(member.id)
