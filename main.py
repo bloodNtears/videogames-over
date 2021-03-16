@@ -1,7 +1,7 @@
 from VoiceListener import *
 from cfg import NEW_SERVER
 
-
+TOKEN = ''
 
 class MyClient(commands.Bot):
     async def on_ready(self):
@@ -25,6 +25,11 @@ class MyClient(commands.Bot):
     # dm
     async def on_member_join(self, member):
         def add_id_data(member):
+            """
+            writes member.name, member.id and autoincrement local id if member is not in UsersID table
+            :param member: discord.Member
+            :return: user_id
+            """
             print('adding user_id in UsersID'.upper())
             conn = sqlite3.connect('projectdis.db')
             cur = conn.cursor()
@@ -40,6 +45,13 @@ class MyClient(commands.Bot):
             return user_id
 
         def add_time_data(user_id):
+            """
+            takes user_id that was created in add_id_table
+            creates column in Time table if not exists
+            inserts primary key user_id from UsersID table
+            :param user_id: integer
+            :return:
+            """
             print('adding in time'.upper())
             conn = sqlite3.connect('projectdis.db')
             cur = conn.cursor()
@@ -48,13 +60,10 @@ class MyClient(commands.Bot):
             if 'u' + str(user_id) not in names:
                 req = 'ALTER TABLE Time ADD u' + str(user_id) + ' INTEGER;'
                 cur.execute(req)
-                # print('user_id - ', user_id)
                 req = f'INSERT INTO Time (User_id) Values ({user_id})'
-                # print(req)
                 cur.execute(req)
             conn.commit()
             conn.close()
-            # print(cur.description)
 
         user_id = add_id_data(member)
         # print(user_id)

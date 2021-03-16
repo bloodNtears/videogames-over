@@ -4,19 +4,17 @@ from datetime import datetime, timedelta
 import sqlite3
 
 
-def fill_id_table(member):
-    conn = sqlite3.connect('projectdis.db')
-    cur = conn.cursor()
-    cur.execute('''SELECT * FROM UsersID WHERE ds_id = ?''', (member.id,))
-    exists = cur.fetchone()
-    if not exists:
-        cur.execute('''INSERT OR IGNORE INTO UsersID (user, ds_id) Values ( ?, ? )''', (member, member.id,))
-    print(exists)
-    conn.commit()
-    conn.close()
-
-
 def fill_time_db(member1, time1, member2, time2):
+    """
+    takes 2 discord members and their join times
+    calculate time they've spent together in voice channel
+    writes down the result into Time table
+    :param member1: discord.Member
+    :param time1: datetime.datetime
+    :param member2: discord.Member
+    :param time2: datetime.datetime
+    :return:
+    """
     print('ARGS', member1, time1, member2, time2)
     conn = sqlite3.connect('projectdis.db')
     cur = conn.cursor()
@@ -50,7 +48,7 @@ class VoiceListener(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
 
-        # active_users = dict()  # all users who are in voice chat rn; structure: {user1: join_time, user2: join_time ...}
+        # active_users = dict()  all users who are in voice chat rn; structure: {user1: join_time, user2: join_time ...}
         # pairs = dict()  # dict of pairs related to a specific voice channel;
         # structure: {voice_channel1_id: [user1, user2, user3],
         # voice_channel2_id: [user4, user5, user6]
@@ -65,8 +63,6 @@ class VoiceListener(commands.Cog):
             if before.channel is None:
                 print(member.name, 'has connected to', after.channel.name, '\n')
 
-                fill_id_table(member)
-
                 self.active_users[member.id] = datetime.now()
                 print('ACTIVE USERS', self.active_users)
                 if after.channel.id not in self.pairs.keys():
@@ -78,7 +74,6 @@ class VoiceListener(commands.Cog):
             elif after.channel is not None:
                 print(member.name, 'has disconnected from', before.channel.name, '\n')
                 print(member.name, 'has connected to', after.channel.name, '\n')
-                # заполняем бд данными из active_users
 
                 friends = self.pairs[before.channel.id].remove(member.id)
                 for friend in friends:
@@ -107,13 +102,6 @@ class VoiceListener(commands.Cog):
                     del self.active_users[member.id]
                 print('ACTIVE', self.active_users)
                 print('PAIRS', self.pairs)
-
-        '''
-        if before.self_mute is False and after.self_mute is True:
-            print(member.name, 'has muted in', before.channel.name, '\n')
-        if before.self_mute is True and after.self_mute is False:
-            print(member.name, 'has unmuted in', before.channel.name, '\n')
-        '''
 
 
 def setup(bot):
