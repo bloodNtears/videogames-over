@@ -104,5 +104,5 @@ class VoiceListener(commands.Cog):
                 print('PAIRS', self.pairs)
 
 
-def setup(bot):
+def setup_voice(bot):
     bot.add_cog(VoiceListener(bot))

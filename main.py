@@ -1,7 +1,9 @@
 from VoiceListener import *
 from cfg import NEW_SERVER
+import re
 
-TOKEN = ''
+TOKEN = 'ODA0Njk3NTYxNzc2MjU5MDgy.YBQHAQ.Yfdcns4294m2zS2XdoUU9sVViO0'
+
 
 class MyClient(commands.Bot):
     async def on_ready(self):
@@ -119,5 +121,40 @@ def time_data():
 
 bot = MyClient(command_prefix='!', intents=discord.Intents.all())
 
-setup(bot)
+setup_voice(bot)
+
+
+@bot.command(help="Check time u have spent with ur friend. Call !time @friend_nick")
+async def time(ctx, friend):
+    guild = ctx.guild
+    ds_id1 = ctx.message.author.id
+    friend = friend.strip()
+    try:
+        ds_id2 = int(re.findall(r'[0-9]+', friend)[0])
+    except Exception as e:
+        await ctx.send('Example of command: !time @ur_friend')
+        return 1
+    print(ds_id1, ds_id2, friend)
+
+    name1 = ctx.message.author.name
+    name2 = discord.utils.get(guild.members, id=ds_id2)
+    if name2 is None:
+        await ctx.send(f'Your friend is not a member of {guild.name} right now!')
+        return 1
+    name2 = name2.name
+
+    conn = sqlite3.connect('projectdis.db')
+    cur = conn.cursor()
+    user_id1 = cur.execute('''SELECT * FROM UsersID WHERE ds_id = ?''', (ds_id1,)).fetchone()[0]
+    user_id2 = cur.execute('''SELECT * FROM UsersID WHERE ds_id = ?''', (ds_id2,)).fetchone()[0]
+    print(user_id1, user_id2)
+    time_together = cur.execute('SELECT * FROM Time WHERE User_id = ?', (user_id1,)).fetchall()[0][user_id2]
+    print(time_together)
+    conn.commit()
+    conn.close()
+    if time_together is None:
+        time_together = 0
+    await ctx.send(f'{name1} and {name2} have spent {time_together} minutes together!')
+
+
 bot.run(TOKEN)
