@@ -1,69 +1,71 @@
 from VoiceListener import *
-from cfg import NEW_SERVER
+import json
 import re
+from itertools import combinations
 
-TOKEN = 'ODA0Njk3NTYxNzc2MjU5MDgy.YBQHAQ.Yfdcns4294m2zS2XdoUU9sVViO0'
+TOKEN = 'ODA0Njk3NTYxNzc2MjU5MDgy.YBQHAQ.JRFl-R2Fwyqk7oVy27W8UV1m4ew'
 
 
 class MyClient(commands.Bot):
     async def on_ready(self):
+        def cfg():
+            f = open('cfg.json','r')
+            data = f.read()
+            f.close()
+            js = json.loads(data)
+            new_guild = js["NEW_GUILD"]
+            guild_name = js["GUILD_NAME"]
+            if new_guild == 1:
+                js["NEW_GUILD"] = 0
+                f = open('cfg.json', 'w')
+                js_dump = json.dumps(js)
+                f.write(js_dump)
+                f.close()
+            return new_guild, guild_name
+
+
+
         print('Logged in as')
         print(self.user.name)
         print(self.user.id)
         print('------')
-        if NEW_SERVER:
+        NEW_GUILD, GUILD_NAME = cfg()
+        if NEW_GUILD == 1:
             guilds = bot.guilds
             for guild in guilds:
-                if guild.name == 'test_bot_fiverr':
+                if guild.name == GUILD_NAME:
                     true_guild = guild
                     print(guild.name.upper())
                     id_data(true_guild)
                     time_data()
                     break
-            f = open('cfg.py', 'w')
-            f.write('NEW_SERVER = False\n')
-            f.close()
 
     # dm
     async def on_member_join(self, member):
         def add_id_data(member):
-            """
-            writes member.name, member.id and autoincrement local id if member is not in UsersID table
-            :param member: discord.Member
-            :return: user_id
-            """
-            print('adding user_id in UsersID'.upper())
-            conn = sqlite3.connect('projectdis.db')
+            print('ADDING USER IN unique_ids')
+            conn = sqlite3.connect('optimZenly.db')
             cur = conn.cursor()
-            cur.execute('''SELECT * FROM UsersID WHERE ds_id = ?''', (member.id,))
-            exists = cur.fetchone()
+            exists = cur.execute('SELECT * FROM unique_ids WHERE ds_id = ?', (member.id,)).fetchone()
             if not exists:
-                cur.execute('''INSERT OR IGNORE INTO UsersID (user, ds_id) Values ( ?, ? )''',
-                            (member.name, member.id,))
-            user_id = cur.execute(f'SELECT * FROM UsersID WHERE ds_id = {member.id}').fetchone()[0]
+                cur.execute('''INSERT INTO unique_ids (name, ds_id) VALUES (?,?)''', (member.name, member.id))
+            user_id = cur.execute(f'SELECT * FROM unique_ids WHERE ds_id = {member.id}').fetchone()[0]
             print(exists)
             conn.commit()
             conn.close()
             return user_id
 
         def add_time_data(user_id):
-            """
-            takes user_id that was created in add_id_table
-            creates column in Time table if not exists
-            inserts primary key user_id from UsersID table
-            :param user_id: integer
-            :return:
-            """
-            print('adding in time'.upper())
-            conn = sqlite3.connect('projectdis.db')
+            print('ADDING IN TIME')
+            conn = sqlite3.connect('optimZenly.db')
             cur = conn.cursor()
-            lst = cur.execute('select * from Time')
-            names = [description[0] for description in cur.description]
-            if 'u' + str(user_id) not in names:
-                req = 'ALTER TABLE Time ADD u' + str(user_id) + ' INTEGER;'
-                cur.execute(req)
-                req = f'INSERT INTO Time (User_id) Values ({user_id})'
-                cur.execute(req)
+            data = cur.execute('SELECT user_id FROM unique_ids').fetchall()
+            data = [row[0] for row in data]
+            pairs = [(user_id, table_id) for table_id in data]
+            print(pairs)
+            for pair in pairs:
+                req = 'INSERT INTO users (user1, user2) VALUES (?, ?)'
+                cur.execute(req, pair)
             conn.commit()
             conn.close()
 
@@ -80,43 +82,41 @@ def id_data(guild):
     ds_ids = [member.id for member in members]
     count = guild.member_count
 
-    conn = sqlite3.connect('projectdis.db')
+    conn = sqlite3.connect('optimZenly.db')
     cur = conn.cursor()
-    cur.execute('DROP TABLE IF EXISTS UsersID')
-    cur.execute('''CREATE TABLE "UsersID" (
-    "user_id"	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "user"	TEXT NOT NULL,
+    cur.execute('DROP TABLE IF EXISTS unique_ids')
+    cur.execute('''CREATE TABLE "unique_ids" (
+        "user_id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "name" TEXT NOT NULL,
     "ds_id"	INTEGER NOT NULL UNIQUE
     );''')
 
     for i in range(count):
-        cur.execute('''INSERT OR IGNORE INTO UsersID (user, ds_id) Values ( ?, ? )''', (names[i], ds_ids[i],))
+        cur.execute('''INSERT OR IGNORE INTO unique_ids (name, ds_id) Values ( ?, ? )''', (names[i], ds_ids[i],))
     conn.commit()
     conn.close()
 
 
 def time_data():
-    print('time_data'.upper())
-    flag = False
-    if not flag:
-        conn = sqlite3.connect('projectdis.db')
-        cur = conn.cursor()
-        cur.execute('DROP TABLE IF EXISTS Time')
-        cur.execute('''CREATE TABLE "Time" (
-        "User_id"	INTEGER NOT NULL,
-        PRIMARY KEY("User_id")
-        );''')
-        data = cur.execute('SELECT * FROM UsersID').fetchall()
-        user_ids = [row[0] for row in data]
-        for user_id in user_ids:
-            req = 'ALTER TABLE Time ADD u' + str(user_id) + ' INTEGER;'
-            cur.execute(req)
-        for user_id in user_ids:
-            req = 'INSERT INTO Time (' + 'u' + ', u'.join([str(i) for i in user_ids]) + ') Values (' + ' ,'.join(
-                ['?' for i in range(len(user_ids))]) + ')'
-            cur.execute(req, (tuple([None for i in range(len(user_ids))])))
-        conn.commit()
-        conn.close()
+    print('TIME DATA 1')
+    conn = sqlite3.connect('optimZenly.db')
+    cur = conn.cursor()
+    cur.execute('DROP TABLE IF EXISTS users')
+    cur.execute('''CREATE TABLE "users" (
+    "user1"	INTEGER NOT NULL,
+    "user2"	INTEGER NOT NULL,
+    "time"	INTEGER
+    );''')
+    data = cur.execute('SELECT user_id FROM unique_ids').fetchall()
+    data = [row[0] for row in data]
+    print(data)
+    pairs = list(combinations(data, 2))
+    print("PAIRS", pairs)
+    for pair in pairs:
+        req = 'INSERT INTO users (user1, user2) VALUES (?, ?)'
+        cur.execute(req, pair)
+    conn.commit()
+    conn.close()
 
 
 bot = MyClient(command_prefix='!', intents=discord.Intents.all())
@@ -143,13 +143,13 @@ async def time(ctx, friend):
         return 1
     name2 = name2.name
 
-    conn = sqlite3.connect('projectdis.db')
+    conn = sqlite3.connect('optimZenly.db')
     cur = conn.cursor()
-    user_id1 = cur.execute('''SELECT * FROM UsersID WHERE ds_id = ?''', (ds_id1,)).fetchone()[0]
-    user_id2 = cur.execute('''SELECT * FROM UsersID WHERE ds_id = ?''', (ds_id2,)).fetchone()[0]
-    print(user_id1, user_id2)
-    time_together = cur.execute('SELECT * FROM Time WHERE User_id = ?', (user_id1,)).fetchall()[0][user_id2]
-    print(time_together)
+    user1_id = cur.execute('''SELECT * FROM unique_ids WHERE ds_id = ?''', (ds_id1,)).fetchone()[0]
+    user2_id = cur.execute('''SELECT * FROM unique_ids WHERE ds_id = ?''', (ds_id2,)).fetchone()[0]
+    # print(user1_id, user2_id)
+    time_together = cur.execute(f'SELECT time FROM users WHERE user1 = {user1_id} AND user2 = {user2_id}').fetchone()[0]
+    # print('TT',time_together)
     conn.commit()
     conn.close()
     if time_together is None:

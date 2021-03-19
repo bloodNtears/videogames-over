@@ -16,10 +16,10 @@ def fill_time_db(member1, time1, member2, time2):
     :return:
     """
     print('ARGS', member1, time1, member2, time2)
-    conn = sqlite3.connect('projectdis.db')
+    conn = sqlite3.connect('optimZenly.db')
     cur = conn.cursor()
-    user1_id = cur.execute('SELECT user_id from UsersID WHERE ds_id = ?', (member1,)).fetchone()[0]
-    user2_id = cur.execute('SELECT user_id from UsersID WHERE ds_id = ?', (member2,)).fetchone()[0]
+    user1_id = cur.execute('SELECT user_id from unique_ids WHERE ds_id = ?', (member1,)).fetchone()[0]
+    user2_id = cur.execute('SELECT user_id from unique_ids WHERE ds_id = ?', (member2,)).fetchone()[0]
     cur_time = datetime.now()
     # delta_time = cur_time - timedelta(hours=time2.hour, minutes=time2.minute, seconds=time2.second)
     print('CURTIME', cur_time)
@@ -28,13 +28,11 @@ def fill_time_db(member1, time1, member2, time2):
     else:
         delta_time = cur_time - timedelta(hours=time1.hour, minutes=time1.minute, seconds=time1.second)
     delta_time = int(delta_time.hour * 60 + delta_time.minute + delta_time.second / 60)
-    friends_time = cur.execute(f'SELECT u{user1_id} FROM Time WHERE User_id = {user2_id}').fetchone()[0]
+    friends_time = cur.execute(f'SELECT time FROM users WHERE user1 = {user1_id} AND user2 = {user2_id}').fetchone()[0]
     if friends_time is None:
         friends_time = 0
-    req = f'UPDATE Time SET u{user1_id} = {delta_time + friends_time} WHERE User_id = {user2_id}'
-    req2 = f'UPDATE Time SET u{user2_id} = {delta_time + friends_time} WHERE User_id = {user1_id}'
+    req = f'UPDATE users SET time = {delta_time + friends_time} WHERE user1 = {user1_id} AND user2 = {user2_id}'
     cur.execute(req)
-    cur.execute(req2)
     conn.commit()
     conn.close()
 
