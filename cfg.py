@@ -1,1 +1,0 @@
-NEW_SERVER = True
