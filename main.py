@@ -3,33 +3,32 @@ import json
 import re
 from itertools import combinations
 
-TOKEN = 'ODA0Njk3NTYxNzc2MjU5MDgy.YBQHAQ.JRFl-R2Fwyqk7oVy27W8UV1m4ew'
+TOKEN = 'ODA0Njk3NTYxNzc2MjU5MDgy.YBQHAQ.K2dT-QDfEwc8OkuSZTzt6KCusg4'
 
 
 class MyClient(commands.Bot):
     async def on_ready(self):
         def cfg():
-            f = open('cfg.json','r')
+            f = open('cfg.json', 'r')
             data = f.read()
             f.close()
             js = json.loads(data)
             new_guild = js["NEW_GUILD"]
             guild_name = js["GUILD_NAME"]
+            help_id = js["HELP_CHANNEL_ID"]
             if new_guild == 1:
                 js["NEW_GUILD"] = 0
                 f = open('cfg.json', 'w')
                 js_dump = json.dumps(js)
                 f.write(js_dump)
                 f.close()
-            return new_guild, guild_name
-
-
+            return new_guild, guild_name, help_id
 
         print('Logged in as')
         print(self.user.name)
         print(self.user.id)
         print('------')
-        NEW_GUILD, GUILD_NAME = cfg()
+        NEW_GUILD, GUILD_NAME, HELP_ID = cfg()
         if NEW_GUILD == 1:
             guilds = bot.guilds
             for guild in guilds:
@@ -38,6 +37,12 @@ class MyClient(commands.Bot):
                     print(guild.name.upper())
                     id_data(true_guild)
                     time_data()
+                    channel = discord.utils.get(true_guild.channels, id=HELP_ID)
+                    embed = discord.Embed(colour=discord.Colour.dark_green())
+                    embed.add_field(name=':clock1:', value='React :clock1: to know time with everyone', inline=False)
+                    message = await channel.send(embed=embed)
+                    print(message)
+                    await message.add_reaction('🕐')
                     break
 
     # dm
@@ -70,7 +75,6 @@ class MyClient(commands.Bot):
             conn.close()
 
         user_id = add_id_data(member)
-        # print(user_id)
         add_time_data(user_id)
         await member.send(f'Hi {member.name}, welcome to the club')
 
@@ -127,6 +131,7 @@ setup_voice(bot)
 @bot.command(help="Check time u have spent with ur friend. Call !time @friend_nick")
 async def time(ctx, friend):
     guild = ctx.guild
+    print(guild.id)
     ds_id1 = ctx.message.author.id
     friend = friend.strip()
     try:
@@ -134,7 +139,6 @@ async def time(ctx, friend):
     except Exception as e:
         await ctx.send('Example of command: !time @ur_friend')
         return 1
-    print(ds_id1, ds_id2, friend)
 
     name1 = ctx.message.author.name
     name2 = discord.utils.get(guild.members, id=ds_id2)
@@ -147,14 +151,60 @@ async def time(ctx, friend):
     cur = conn.cursor()
     user1_id = cur.execute('''SELECT * FROM unique_ids WHERE ds_id = ?''', (ds_id1,)).fetchone()[0]
     user2_id = cur.execute('''SELECT * FROM unique_ids WHERE ds_id = ?''', (ds_id2,)).fetchone()[0]
-    # print(user1_id, user2_id)
-    time_together = cur.execute(f'SELECT time FROM users WHERE user1 = {user1_id} AND user2 = {user2_id}').fetchone()[0]
-    # print('TT',time_together)
+    time_together = cur.execute(
+        f'SELECT time FROM users WHERE user1 IN ({user1_id}, {user2_id}) AND user2 IN ({user1_id}, {user2_id})').fetchone()[
+        0]
     conn.commit()
     conn.close()
     if time_together is None:
         time_together = 0
     await ctx.send(f'{name1} and {name2} have spent {time_together} minutes together!')
+
+
+@bot.event
+async def on_raw_reaction_add(payload):
+    member = payload.member
+    guild = member.guild
+    user_name = member.name
+
+    f = open('cfg.json', 'r')
+    data = f.read()
+    f.close()
+    js = json.loads(data)
+    help_id = js["HELP_CHANNEL_ID"]
+
+    react_channel_id = payload.channel_id
+    channel = bot.get_channel(guild.system_channel.id)
+    help_channel = bot.get_channel(help_id)
+
+    if react_channel_id != help_channel.id or member == bot.user:
+        return
+    if payload.emoji.name == '🕐':
+        conn = sqlite3.connect('optimZenly.db')
+        cur = conn.cursor()
+        content = discord.Embed(title=f'{user_name} has spent that much time with friends!')
+        content.set_thumbnail(url=member.avatar_url)
+
+        user_id = cur.execute(f'SELECT user_id FROM unique_ids WHERE ds_id = {member.id}').fetchone()[0]
+        user2_ids = cur.execute(f'SELECT user_id FROM unique_ids WHERE user_id != {user_id}').fetchall()
+        no_time_flag = True
+        for user2_id in user2_ids:
+            time_together = cur.execute(
+                f'SELECT time FROM users WHERE user1 IN ({user_id}, {user2_id[0]}) AND user2 IN ({user_id}, {user2_id[0]})').fetchone()[
+                0]
+            if time_together is None:
+                continue
+            else:
+                no_time_flag = False
+            user2_name = cur.execute(f'SELECT name FROM unique_ids WHERE user_id = {user2_id[0]}').fetchone()[0]
+            content.add_field(name='with ' + user2_name, value=str(time_together) + ' minutes!', inline=False)
+
+        conn.commit()
+        conn.close()
+        if no_time_flag:
+            await channel.send(f'```{user_name} hasn\'t been in voice channel with anyone yet :(```')
+        else:
+            await channel.send(embed=content)
 
 
 bot.run(TOKEN)
